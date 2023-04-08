@@ -111,22 +111,6 @@ namespace bhs_game {
             return path;
         }
 
-        [[maybe_unused]] double &getOrientation() {
-            return state[2];
-        }
-
-        [[maybe_unused]] double &getX() {
-            return state[0];
-        }
-
-        [[maybe_unused]] double &getY() {
-            return state[1];
-        }
-
-        Eigen::Vector2d getPos() {
-            return {state[0], state[1]};
-        }
-
         double &getLinearVelocity() {
             return velocity[0];
         }

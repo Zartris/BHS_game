@@ -16,12 +16,12 @@ namespace bhs_game {
         invalidate_agent_cache();
         agent_to_index[agent] = NULL; // Might set it to 0, which is not what we want.
         Eigen::Vector2d adjusted_pos = torus_adj(pos);
-        agent->pos = adjusted_pos;
+        agent->setPos(adjusted_pos);
     }
 
     void ContinuousSpace::move_agent(Agent *agent, const Eigen::Vector2d &pos) {
         Eigen::Vector2d adjusted_pos = torus_adj(pos);
-        agent->pos = adjusted_pos;
+        agent->setPos(adjusted_pos);
 
         if (!agent_points.empty()) {
             size_t idx = agent_to_index[agent];
@@ -35,13 +35,12 @@ namespace bhs_game {
         }
         agent_to_index.erase(agent);
         invalidate_agent_cache();
-        agent->pos = Eigen::Vector2d::Zero();
+        agent->setPos(Eigen::Vector2d::Zero());
     }
 
     void ContinuousSpace::invalidate_agent_cache() {
         agent_points.clear();
         index_to_agent.clear();
-
     }
 
     /**
@@ -50,7 +49,6 @@ namespace bhs_game {
      * @return The adjusted position.
      */
     Eigen::Vector2d ContinuousSpace::torus_adj(const Eigen::Vector2d &pos) {
-
         if (!out_of_bounds(pos))
             return pos;
         else if (!torus) {
@@ -75,13 +73,7 @@ namespace bhs_game {
             auto agent = index_to_agent[i];
             index_to_agent[i] = agent;
             agent_to_index[agent] = i;
-
         }
-//        idx, agent in enumerate(self._agent_to_index):
-//        self._agent_to_index[agent] = idx
-//        self._index_to_agent[idx] = agent
-//# Since dicts are ordered by insertion, we can iterate through agents keys
-//        self._agent_points = np.array([agent.pos for agent in self._agent_to_index])
     }
 
 
