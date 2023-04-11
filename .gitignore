@@ -31,3 +31,5 @@
 *.out
 *.app
 /cmake-build-debug/
+/third_party/libtorch/
+/third_party/libtorch.zip

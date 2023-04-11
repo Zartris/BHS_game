@@ -11,18 +11,13 @@ namespace bhs_game {
             _seed = rd();
         }
         random.seed(_seed);
-
-
-    }
-
-    void Model::run_model() {
-        while (running) {
-            step();
-        }
     }
 
     void Model::step() {
         // Implement the single step logic here
+        printf("Step %i \n", step_count);
+        scheduler->step(physic_step_time);
+        step_count += 1;
     }
 
     int Model::next_id() {
@@ -36,6 +31,22 @@ namespace bhs_game {
         }
         random.seed(seed);
         _seed = seed;
+    }
+
+    void Model::play_until_stopped() {
+        running = true;
+        while (running) {
+            step();
+        }
+    }
+
+    void Model::run(int epochs) {
+        running = true;
+        for (int i = 0; i < epochs; i++) {
+            printf("\nEpoch %i \n", i);
+            step();
+        }
+        running = false;
     }
 
 } // bhs_game

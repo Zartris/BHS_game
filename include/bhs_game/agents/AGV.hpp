@@ -7,6 +7,8 @@
 
 #include "Agent.hpp"
 #include "bhs_game/robotics/DifferentialDrive.hpp"
+#include "bhs_game/utils/config.h"
+
 
 namespace bhs_game {
     enum class WorkState {
@@ -19,11 +21,21 @@ namespace bhs_game {
         double current_battery;
         double max_battery;
     };
-    struct MotorConfig {
-        double max_speed;
+
+    class MotorConfig {
+    public:
+        double max_linear_vel;
         double max_acceleration;
         double max_deceleration;
-        double max_wheel_speed;
+        double max_angular_vel;
+
+//        MotorConfig() = default;
+
+        MotorConfig(double max_linear_vel, double maxAcceleration, double maxDeceleration, double wheel_radius)
+                : max_linear_vel(max_linear_vel), max_acceleration(maxAcceleration), max_deceleration(maxDeceleration) {
+            // convert from m/s to rad/s
+            max_angular_vel = max_linear_vel / wheel_radius;
+        }
     };
 
 
@@ -44,6 +56,10 @@ namespace bhs_game {
     public:
         // Methods
         AAGV(int uniqueId, Battery battery, MotorConfig motor_config, float wheel_radius, float wheel_base);
+
+        AAGV(int uniqueId, const Config& config);
+
+        ~AAGV() override = default;
 
         void step(double dt) override;
 

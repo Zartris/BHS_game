@@ -7,6 +7,7 @@
 
 namespace bhs_game {
     void AServer::step(double dt) {
+        printf("Server %i step \n", getUniqueId());
         // Implement the single step logic here
         // 1. Check if there are any requests from agents
         if (request_received) {
@@ -32,6 +33,7 @@ namespace bhs_game {
     }
 
     std::vector<Eigen::Vector2d> AServer::computePath() {
+        printf("Computing path for agents \n");
         return std::vector<Eigen::Vector2d>();
     }
 } // bhs_game

@@ -2,23 +2,30 @@
 // Created by zartris on 4/8/23.
 //
 
-#ifndef BHS_VIS_AGENT_H
-#define BHS_VIS_AGENT_H
+#ifndef BHS_GAME_AGENT_H
+#define BHS_GAME_AGENT_H
+
+#include <utility>
 
 #include "Eigen/Core"
 
 namespace bhs_game {
     class Agent {
     public:
-        explicit Agent(int unique_id);
+        std::string className = "Agent";
+        bool hasCollision;
+        bool isStatic;
+    public:
+        explicit Agent(int unique_id, std::string className, bool hasCollision, bool isStatic) :
+                uniqueId(unique_id), className(std::move(className)), hasCollision(hasCollision), isStatic(isStatic) {};
 
         virtual ~Agent() = default;
 
         // The tick function should be implemented by all derived classes
         virtual void step(double dt) = 0;
 
-        [[nodiscard]] int get_unique_id() const {
-            return unique_id;
+        [[nodiscard]] int getUniqueId() const {
+            return uniqueId;
         }
 
         [[nodiscard]] Eigen::Matrix<double, 3, 1> getState() const {
@@ -64,9 +71,10 @@ namespace bhs_game {
 
 
     protected:
-        int unique_id;
+        int uniqueId;
         Eigen::Matrix<double, 3, 1> state = Eigen::Vector3d::Zero();
+
 
     };
 } // bhs_game
-#endif //BHS_VIS_AGENT_H
+#endif //BHS_GAME_AGENT_H

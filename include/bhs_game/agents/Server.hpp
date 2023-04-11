@@ -21,9 +21,11 @@ namespace bhs_game {
 
     public:
 
-        explicit AServer(int uniqueId) : Agent(uniqueId) {
+        explicit AServer(int uniqueId) : Agent(uniqueId, "AServer", false, true) {
 
         }
+
+        ~AServer() override = default;
 
         void step(double dt) override;
 
