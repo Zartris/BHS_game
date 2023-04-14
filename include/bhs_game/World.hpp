@@ -1,59 +1,59 @@
-//
-// Created by zartris on 4/8/23.
-//
-
 #ifndef BHS_VIS_WORLD_H
 #define BHS_VIS_WORLD_H
 
-#include <Eigen/Core>
 #include <cmath>
 #include <map>
 #include <stdexcept>
 #include <vector>
 #include "bhs_game/agents/Agent.hpp"
+#include "bhs_game/utils/tensor_alias.h"
 
 namespace bhs_game {
     class ContinuousSpace {
     public:
-        ContinuousSpace(double x_max, double y_max, bool torus, double x_min = 0, double y_min = 0);
+        ContinuousSpace(TScalarDouble x_max, TScalarDouble y_max, bool torus,
+                        TScalarDouble x_min = torch::scalar_tensor(0, TOptions(torch::kInt, device)),
+                        TScalarDouble y_min = torch::scalar_tensor(0, TOptions(torch::kInt, device)));
 
-        void placeAgent(Agent *agent, const Eigen::Vector3d &pos);
+        void placeAgent(Agent *agent, TensorXDouble pos);
 
-        void moveAgent(Agent *agent, const Eigen::Vector3d &pos);
+        void moveAgent(Agent *agent, TensorXDouble &pos);
 
         void removeAgent(Agent *agent);
 
         // Additional methods go here
 
     private:
-        double x_min;
-        double x_max;
-        double width;
-        double y_min;
-        double y_max;
-        double height;
+        TScalarDouble x_min;
+        TScalarDouble x_max;
+        TScalarDouble width;
+        TScalarDouble y_min;
+        TScalarDouble y_max;
+        TScalarDouble height;
         bool torus;
-        Eigen::Array2d center;
-        Eigen::Array2d size;
+        Tensor2Double center;
+        Tensor2Double size;
 
-        std::vector<Eigen::Vector3d> agent_points;
+        std::vector<Tensor3Double> agent_points;
         std::map<size_t, Agent *> index_to_agent;
         std::map<Agent *, size_t> agent_to_index;
         std::vector<int> static_agents;
         std::vector<int> dynamic_agents;
         std::vector<int> collision_agents;
 
+
         // Additional private methods go here
         void invalidate_agent_cache();
 
-        Eigen::Vector3d torus_adj(const Eigen::Vector3d &pos);
+        TensorXDouble torus_adj(TensorXDouble &pos);
 
-        bool out_of_bounds(const Eigen::Vector3d &pos) const;
+        bool out_of_bounds(const TensorXDouble &pos) const;
 
         void buildAgentCache();
 
-        std::vector<Agent *> getNeighborhoodFromList(const Eigen::Vector3d &pos, double radius,
-                                                     std::vector<int> &agent_index_search_list, bool include_center = false);
+        std::vector<Agent *> getNeighborhoodFromList(const TensorXDouble &pos, double radius,
+                                                     std::vector<int> &agent_index_search_list,
+                                                     bool include_center = false);
 
 
     };

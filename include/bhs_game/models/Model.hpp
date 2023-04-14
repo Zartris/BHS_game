@@ -6,6 +6,7 @@
 #include <random>
 #include "bhs_game/Scheduler.hpp"
 #include "bhs_game/World.hpp"
+#include "bhs_game/utils/global_device.h"
 
 #ifndef BHS_VIS_MODEL_H
 #define BHS_VIS_MODEL_H
@@ -27,7 +28,7 @@ namespace bhs_game {
         ContinuousSpace *world = nullptr;
         std::mt19937 random;
     public:
-        explicit Model(int seed = -1);
+        Model(int seed = -1, bool allow_gpu = false);
 
         void run(int epochs);
 

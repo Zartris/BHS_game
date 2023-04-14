@@ -1,13 +1,12 @@
 cmake_minimum_required(VERSION 3.25 FATAL_ERROR)
-project(bhs_game VERSION 1.0.0 LANGUAGES CXX C)
+project(bhs_game VERSION 1.0.0 LANGUAGES CXX C CUDA)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_CUDA_STANDARD 17)
+set(CMAKE_CUDA_STANDARD 20)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 #
-#set(CMAKE_CUDA_FLAGS "-std=c++20")
 
 #set(CMAKE_C_COMPILER /usr/bin/gcc-9)
 #set(CMAKE_CXX_COMPILER /usr/bin/g++-9)
@@ -17,6 +16,32 @@ set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(THE_EXE_NAME bhs_game_executable)
 
 include(ExternalProject)
+
+
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    message("Building in debug mode")
+    add_definitions(-DDEBUG -URELEASE)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
+    # comment this if you want to remove the verbose output
+#    add_definitions(-DVERBOSE)
+elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
+    message("Building in release mode")
+    add_definitions(-DRELEASE -UVERBOSE -UDEBUG)
+    # comment this if you want to remove the verbose output
+elseif (CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+    message("Building in release mode")
+    add_definitions(-DRELEASE -DVERBOSE-UDEBUG)
+    # comment this if you want to remove the verbose output
+else ()
+    message("Building in something mode???????")
+
+    # comment this if you want to remove the verbose output
+    #    add_definitions(-DVERBOSE)
+endif ()
+# allow for the use of the -pthread flag
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pthread")
 
 # The following needs to be set by whom ever is building this
 set(LIBTORCH_VERSION "2.0.0") # Change this to your desired version
@@ -48,34 +73,45 @@ endif ()
 # Make the LibTorch library work:
 set(CMAKE_PREFIX_PATH "${LIBTORCH_PATH}")
 # CUDA PARAMS:
-#set(CMAKE_CUDA_HOST_COMPILER /usr/bin/clang-8)
 set(CUDA_TOOLKIT_ROOT_DIR /usr/local/cuda-12.1)
 set(CUDA_COMPILER /usr/local/cuda-12.1/bin/nvcc)
+
+# Enable CUDNN
 set(USE_CUDNN ON)
+set(CAFFE2_USE_CUDNN ON)
 
 message(STATUS "CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
-find_package(Torch REQUIRED COMPONENTS CUDA)
+find_package(Torch REQUIRED COMPONENTS CUDA CUDNN)
+
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+
+
+# Needed for boost
+set(BoostRoot "${CMAKE_CURRENT_SOURCE_DIR}/third_party/boost")
 
 # Clean up the LibTorch path from previous builds
 #file(REMOVE_RECURSE "${LIBTORCH_PATH}.zip")
 include_directories(
         ${CMAKE_SOURCE_DIR}/include
-        ${CMAKE_SOURCE_DIR}/third_party/eigen
+        #        ${CMAKE_SOURCE_DIR}/third_party/eigen
         ${CMAKE_SOURCE_DIR}/third_party/yaml-cpp/include
+        ${TORCH_INCLUDE_DIRS}
+        ${CMAKE_SOURCE_DIR}/third_party/boost
 )
 
 
 set(SOURCE_FILES main.cpp)
 
 add_executable(${THE_EXE_NAME} ${SOURCE_FILES})
-add_dependencies(${THE_EXE_NAME} libtorch)
+add_executable(TorchTest TorchTest.cpp)
 
 add_subdirectory(src)
-add_subdirectory(third_party/eigen)
+#add_subdirectory(third_party/eigen)
 add_subdirectory(third_party/yaml-cpp)
+add_subdirectory(third_party/boost)
 
-target_link_libraries(${THE_EXE_NAME} PRIVATE bhs_game_lib yaml-cpp ${TORCH_LIBRARIES})
+target_link_libraries(${THE_EXE_NAME} PRIVATE bhs_game_lib yaml-cpp ${TORCH_LIBRARIES} dl)
+target_link_libraries(TorchTest PRIVATE bhs_game_lib yaml-cpp ${TORCH_LIBRARIES} dl)
 
 enable_testing()
 add_subdirectory(tests)

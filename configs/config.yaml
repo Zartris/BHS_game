@@ -45,7 +45,7 @@ image_scenario:
   num_chutes: 0 # Number of chutes
   num_infeed: 0 # Number of in-seed
   num_charging_stations: 0 # Number of charging stations
-  num_agvs: 1000 # Number of AGVs
+  num_agvs: 1 # Number of AGVs
 
 agv_params:
   max_battery: 100 # Maximum battery capacity

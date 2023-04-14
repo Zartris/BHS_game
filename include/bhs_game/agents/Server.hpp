@@ -6,6 +6,8 @@
 #define BHS_GAME_SERVER_H
 
 #include "Agent.hpp"
+#include "bhs_game/utils/global_device.h"
+#include "bhs_game/utils/tensor_alias.h"
 
 namespace bhs_game {
     class AServer : public Agent {
@@ -31,7 +33,7 @@ namespace bhs_game {
 
     private:
         // Add private methods here
-        std::vector<Eigen::Vector2d> computePath();
+        std::vector<TensorXDouble> computePath();
 
 
     public:

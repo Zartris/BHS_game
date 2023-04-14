@@ -5,8 +5,6 @@
 #ifndef BHS_GAME_IMAGE_UTILS_H
 #define BHS_GAME_IMAGE_UTILS_H
 
-#include "Eigen/Core"
-
 #define STB_IMAGE_IMPLEMENTATION
 
 #include "stb_image.hpp"

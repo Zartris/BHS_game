@@ -32,8 +32,8 @@ namespace bhs_game {
         // 4. If we can't release the results, do nothing
     }
 
-    std::vector<Eigen::Vector2d> AServer::computePath() {
+    std::vector<TensorXDouble> AServer::computePath() {
         printf("Computing path for agents \n");
-        return std::vector<Eigen::Vector2d>();
+        return std::vector<TensorXDouble>();
     }
 } // bhs_game

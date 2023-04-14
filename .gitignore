@@ -33,3 +33,7 @@
 /cmake-build-debug/
 /third_party/libtorch/
 /third_party/libtorch.zip
+/build/
+/cmake-build-relwithdebinfo/
+/cmake-build-release/
+/cmake-build-minsizerel/

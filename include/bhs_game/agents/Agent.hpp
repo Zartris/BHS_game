@@ -7,7 +7,8 @@
 
 #include <utility>
 
-#include "Eigen/Core"
+#include "torch/torch.h"
+#include "bhs_game/utils/global_device.h"
 
 namespace bhs_game {
     class Agent {
@@ -28,53 +29,57 @@ namespace bhs_game {
             return uniqueId;
         }
 
-        [[nodiscard]] Eigen::Matrix<double, 3, 1> getState() const {
+        [[nodiscard]] torch::Tensor &getState() {
             return state;
         }
 
-        void setState(Eigen::Matrix<double, 3, 1> state) {
-            this->state = state;
+        void setState(torch::Tensor state) {
+            if (this->state.sizes().size() != state.sizes().size()) {
+                throw std::runtime_error("State size mismatch");
+            }
+            if (this->state[0].sizes() != state[0].sizes()) {
+                throw std::runtime_error("State size inner mismatch");
+            }
+            // Make sure not to overwrite state as we want the same pointers but different values.
+            this->state.copy_(state);
         }
 
-        [[maybe_unused]] double &getOrientation() {
-            return state[2];
+        [[maybe_unused]] torch::Tensor getOrientation() {
+            return state.index({2});
         }
 
-        [[maybe_unused]] double &getX() {
-            return state[0];
+        [[maybe_unused]] torch::Tensor getX() {
+            return state.index({0});
         }
 
-        [[maybe_unused]] double &getY() {
-            return state[1];
+        [[maybe_unused]] torch::Tensor getY() {
+            return state.index({1}); // Note to me .item<double>(); gets the value, but is moving from gpu to cpu
         }
 
-        Eigen::Vector2d getPos() {
-            return {state[0], state[1]};
+        torch::Tensor getPos() {
+            return state.slice(0, 0, 2);
         }
 
-        void setPos(Eigen::Vector2d pos) {
-            state[0] = pos[0];
-            state[1] = pos[1];
+        void setPos(torch::Tensor pos) {
+            state.index_put_({torch::indexing::Slice(0, 2)}, pos);
         }
 
         void setOrientation(double orientation) {
-            state[2] = orientation;
+            state.index_put_({2},
+                             torch::tensor(orientation, torch::TensorOptions().dtype(torch::kDouble).device(device)));
         }
 
         void setX(double x) {
-            state[0] = x;
+            state.index_put_({0}, torch::tensor(x, torch::TensorOptions().dtype(torch::kDouble).device(device)));
         }
 
         void setY(double y) {
-            state[1] = y;
+            state.index_put_({1}, torch::tensor(y, torch::TensorOptions().dtype(torch::kDouble).device(device)));
         }
-
 
     protected:
         int uniqueId;
-        Eigen::Matrix<double, 3, 1> state = Eigen::Vector3d::Zero();
-
-
+        torch::Tensor state = torch::zeros({3, 1}, torch::TensorOptions().dtype(torch::kDouble).device(device));
     };
 } // bhs_game
 #endif //BHS_GAME_AGENT_H

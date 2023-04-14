@@ -8,7 +8,7 @@
 #include "Agent.hpp"
 #include "bhs_game/robotics/DifferentialDrive.hpp"
 #include "bhs_game/utils/config.h"
-
+#include "bhs_game/utils/tensor_alias.h"
 
 namespace bhs_game {
     enum class WorkState {
@@ -27,14 +27,14 @@ namespace bhs_game {
         double max_linear_vel;
         double max_acceleration;
         double max_deceleration;
-        double max_angular_vel;
+        TScalarDouble max_angular_vel;
 
 //        MotorConfig() = default;
 
         MotorConfig(double max_linear_vel, double maxAcceleration, double maxDeceleration, double wheel_radius)
                 : max_linear_vel(max_linear_vel), max_acceleration(maxAcceleration), max_deceleration(maxDeceleration) {
             // convert from m/s to rad/s
-            max_angular_vel = max_linear_vel / wheel_radius;
+            max_angular_vel = torch::scalar_tensor({max_linear_vel / wheel_radius}, TOptions(torch::kDouble, device));
         }
     };
 
@@ -47,31 +47,36 @@ namespace bhs_game {
         bool collided = false;
         Battery battery;
         MotorConfig motor_config;
-        double wheel_radius; // Radius of the wheels (m)
-        double wheel_base; // Distance between the wheels (m)
-        Eigen::Matrix<double, 3, 1> velocity = Eigen::Vector3d::Zero().transpose(); // 0: linear velocity, 2: angular velocity
-        Eigen::Matrix<double, 2, 1> wheel_speed = Eigen::Vector2d::Zero().transpose(); // 0: left wheel velocity (rad/s), 1: right wheel velocity (rad/s)
-        std::vector<Eigen::Vector2d> path = std::vector<Eigen::Vector2d>();
+        TScalarDouble wheel_radius; // Radius of the wheels (m)
+        TScalarDouble wheel_base; // Distance between the wheels (m)
+        TensorXDouble velocity = torch::zeros({3, 1}, torch::TensorOptions().dtype(torch::kDouble).device(
+                device)); // 0: linear velocity, 2: angular velocity
+        TensorXDouble wheel_speed = torch::zeros({2}, torch::TensorOptions().dtype(torch::kDouble).device(
+                device)); // 0: left wheel velocity (rad/s), 1: right wheel velocity (rad/s)
+        std::vector<torch::Tensor> path = std::vector<torch::Tensor>();
+        const torch::Tensor A = torch::eye(3, TOptions(torch::kDouble, device));
+        torch::Tensor B = torch::zeros({3, 2}, TOptions(torch::kDouble, device));
 
     public:
         // Methods
         AAGV(int uniqueId, Battery battery, MotorConfig motor_config, float wheel_radius, float wheel_base);
 
-        AAGV(int uniqueId, const Config& config);
+        AAGV(int uniqueId, const Config &config);
 
         ~AAGV() override = default;
 
         void step(double dt) override;
 
-        Eigen::Vector2d inverse_kinematics();
+        torch::Tensor inverse_kinematics();
 
-        Eigen::Matrix<double, 3, 1> forward_kinematics();
-
-        void update(double dt);
+        torch::Tensor forward_kinematics();
 
     private:
+
         //  Methods
         void update_state(double dt);
+
+        void update(double dt); // use step to update
 
         void requestReplanning();
 
@@ -79,7 +84,7 @@ namespace bhs_game {
 
 // Getter and setters
     public:
-        void setPath(std::vector<Eigen::Vector2d> path) {
+        void setPath(std::vector<torch::Tensor> path) {
             this->path = path;
         }
 
@@ -107,40 +112,52 @@ namespace bhs_game {
             return motor_config;
         }
 
-        [[nodiscard]] double getWheelRadius() const {
+        [[nodiscard]] TScalarDouble getWheelRadius() const {
             return wheel_radius;
         }
 
-        [[nodiscard]] double getWheelBase() const {
+        [[nodiscard]] TScalarDouble getWheelBase() const {
             return wheel_base;
         }
 
-        [[nodiscard]] const Eigen::Matrix<double, 3, 1> &getVelocity() const {
+        [[nodiscard]] const TensorXDouble &getVelocity() const {
             return velocity;
         }
 
-        [[nodiscard]] const Eigen::Matrix<double, 2, 1> &getWheelSpeed() const {
+        [[nodiscard]] const TensorXDouble &getWheelSpeed() const {
             return wheel_speed;
         }
 
-        [[nodiscard]] const std::vector<Eigen::Vector2d> &getPath() const {
+        [[nodiscard]] const std::vector<TensorXDouble> &getPath() const {
             return path;
         }
 
-        double &getLinearVelocity() {
+        TScalarDouble getLinearVelocity() {
             return velocity[0];
         }
 
-        double &getAngularVelocity() {
+        TScalarDouble getAngularVelocity() {
             return velocity[2];
         }
 
-        double &getLeftWheelVelocity() {
+        TScalarDouble getLeftWheelVelocity() {
             return wheel_speed[0];
         }
 
-        double &getRightWheelVelocity() {
+        TScalarDouble getRightWheelVelocity() {
             return wheel_speed[1];
+        }
+
+        void setLinearVelocity(const TScalarDouble &linear_velocity) {
+            velocity[0].copy_(linear_velocity);
+        }
+
+        void setAngularVelocity(const TScalarDouble &angular_velocity) {
+            velocity[2].copy_(angular_velocity);
+        }
+
+        void overwriteState(TensorXDouble state) {
+            this->state = state;
         }
 
     private:

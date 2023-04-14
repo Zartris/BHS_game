@@ -5,18 +5,32 @@
 #include "bhs_game/models/Model.hpp"
 
 namespace bhs_game {
-    Model::Model(int seed) : running(true), current_id(0), _seed(seed) {
+    Model::Model(int seed, bool allow_gpu) : running(true), current_id(0), _seed(seed) {
         if (_seed == -1) {
             std::random_device rd;
             _seed = rd();
         }
         random.seed(_seed);
+
+        if ( allow_gpu && torch::cuda::is_available()) {
+            std::cout << "CUDA is available! Training on GPU." << std::endl;
+            device = torch::kCUDA;
+        }
     }
 
+    /*
+     * This is the main loop of the model. It is called every time step.
+     * It is called by the run function.
+     * It runs through a few steps:
+     * 1. It calls the scheduler to step through the agents and update behaviors
+     * 2. It calls the world to step through the agents and update positions and resolve collisions
+     *
+     */
     void Model::step() {
         // Implement the single step logic here
         printf("Step %i \n", step_count);
         scheduler->step(physic_step_time);
+//        world->step(physic_step_time);
         step_count += 1;
     }
 
