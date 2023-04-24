@@ -24,7 +24,7 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
     # comment this if you want to remove the verbose output
-#    add_definitions(-DVERBOSE)
+    #    add_definitions(-DVERBOSE)
 elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
     message("Building in release mode")
     add_definitions(-DRELEASE -UVERBOSE -UDEBUG)
@@ -34,7 +34,7 @@ elseif (CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
     add_definitions(-DRELEASE -DVERBOSE-UDEBUG)
     # comment this if you want to remove the verbose output
 else ()
-    message("Building in something mode???????")
+    message(WARNING "Building in something mode???????")
 
     # comment this if you want to remove the verbose output
     #    add_definitions(-DVERBOSE)
@@ -86,6 +86,14 @@ find_package(Torch REQUIRED COMPONENTS CUDA CUDNN)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
 
+find_package(OpenMP)
+if (OpenMP_CXX_FOUND)
+    message(STATUS "OpenMP found")
+    message(STATUS "OpenMP_CXX_FLAGS: ${OpenMP_CXX_FLAGS}")
+    message(STATUS "USED FOR Eigen multithreading")
+endif ()
+
+
 # Needed for boost
 set(BoostRoot "${CMAKE_CURRENT_SOURCE_DIR}/third_party/boost")
 
@@ -93,7 +101,7 @@ set(BoostRoot "${CMAKE_CURRENT_SOURCE_DIR}/third_party/boost")
 #file(REMOVE_RECURSE "${LIBTORCH_PATH}.zip")
 include_directories(
         ${CMAKE_SOURCE_DIR}/include
-        #        ${CMAKE_SOURCE_DIR}/third_party/eigen
+        ${CMAKE_SOURCE_DIR}/third_party/eigen
         ${CMAKE_SOURCE_DIR}/third_party/yaml-cpp/include
         ${TORCH_INCLUDE_DIRS}
         ${CMAKE_SOURCE_DIR}/third_party/boost
@@ -106,12 +114,24 @@ add_executable(${THE_EXE_NAME} ${SOURCE_FILES})
 add_executable(TorchTest TorchTest.cpp)
 
 add_subdirectory(src)
-#add_subdirectory(third_party/eigen)
+add_subdirectory(third_party/eigen)
 add_subdirectory(third_party/yaml-cpp)
 add_subdirectory(third_party/boost)
 
-target_link_libraries(${THE_EXE_NAME} PRIVATE bhs_game_lib yaml-cpp ${TORCH_LIBRARIES} dl)
-target_link_libraries(TorchTest PRIVATE bhs_game_lib yaml-cpp ${TORCH_LIBRARIES} dl)
+target_link_libraries(${THE_EXE_NAME} PRIVATE
+        bhs_game_lib
+        yaml-cpp
+        eigen
+        ${TORCH_LIBRARIES}
+        dl
+        OpenMP::OpenMP_CXX)
+target_link_libraries(TorchTest PRIVATE
+        bhs_game_lib
+        yaml-cpp
+        eigen
+        ${TORCH_LIBRARIES}
+        dl
+        OpenMP::OpenMP_CXX)
 
 enable_testing()
 add_subdirectory(tests)

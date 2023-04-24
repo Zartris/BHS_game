@@ -40,7 +40,7 @@ namespace bhs_game {
         [[nodiscard]] std::vector<Agent *> getAllStepAbleAgents() const;
 
     protected:
-        static std::vector<Agent *> getMapValues(std::map<int, Agent *> m) ;
+        static std::vector<Agent *> getMapValues(std::map<int, Agent *> m);
 
     private:
         [[nodiscard]] std::vector<Agent *> agentBuffer() const;

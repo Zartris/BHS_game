@@ -3,6 +3,7 @@
 //
 
 #include "bhs_game/robotics/PIDController.h"
+#include <cmath>
 
 Tensor2Double bhs_game::PIDController::update(const Tensor3Double &currentState, const Tensor2Double &desiredState) {
     // Slice the desired_position tensor to get the first two columns
@@ -76,7 +77,9 @@ TScalarDouble bhs_game::PIDController::getAngleError(Tensor3Double currentState,
     // Compute the angular_error
     torch::Tensor current_heading = currentState.slice(1, 2, 3).slice(2, 0, 1).squeeze(2);
     torch::Tensor angular_error = desired_heading - current_heading;
-
+#ifdef VERBOSE
+    std::cout << "Angular error:\n" << angular_error << std::endl;
+#endif
     // Wrap the angular_error to the range [-pi, pi]
     angular_error = torch::atan2(torch::sin(angular_error), torch::cos(angular_error));
 
@@ -86,4 +89,139 @@ TScalarDouble bhs_game::PIDController::getAngleError(Tensor3Double currentState,
 
 void bhs_game::PIDController::reset() {
 
+}
+
+//Eigen::MatrixXd bhs_game::EPIDController::update(const Eigen::Matrix<double, 3, Eigen::Dynamic> &currentState,
+//                                                 const Eigen::Matrix<double, 2, Eigen::Dynamic> &desiredState) {
+//    // Slice the desired_position matrix to get the first two rows
+//    Eigen::Matrix<double, 2, Eigen::Dynamic> desired_position_slice = desiredState.topRows<2>();
+//
+//    // Slice the current_states matrix to get the first two rows
+//    Eigen::Matrix<double, 2, Eigen::Dynamic> current_states_slice = currentState.topRows<2>();
+//
+//    Eigen::MatrixXd position_error = desired_position_slice - current_states_slice;
+//
+//#ifdef VERBOSE
+//    std::cout << "Position error:\n" << position_error << std::endl;
+//#endif
+//
+//    Eigen::VectorXd distance_error = position_error.colwise().norm();
+//#ifdef VERBOSE
+//    std::cout << "Distance error:\n" << distance_error << std::endl;
+//#endif
+//
+//    v_error_integral += distance_error;
+//    Eigen::VectorXd v_error_derivative = distance_error - v_error_prev;
+//    Eigen::VectorXd desiredVelocity =
+//            vel_pid.kp * distance_error + vel_pid.ki * v_error_integral + vel_pid.kd * v_error_derivative;
+//    v_error_prev = distance_error;
+//
+//    // Compute the desired_heading
+//    Eigen::VectorXd desired_heading = (position_error.row(1).array() / position_error.row(0).array()).unaryExpr(
+//            [](double ratio) { return atan2(ratio, 1.0); });
+//
+//
+//
+////    auto res = cmath::atan2(position_error.row(1), position_error.row(0));
+//    // Compute the angular_error
+//    Eigen::VectorXd current_heading = currentState.row(2);
+//    Eigen::VectorXd angular_error = desired_heading - current_heading;
+//
+//    // Wrap the angular_error to the range [-pi, pi]
+//    angular_error = angular_error.unaryExpr([](double x) { return atan2(sin(x), cos(x)); });
+//#ifdef VERBOSE
+//    std::cout << "Angular error:\n" << angular_error << std::endl;
+//#endif
+//    a_error_integral += angular_error;
+//    Eigen::VectorXd a_error_derivative = angular_error - a_error_prev;
+//    Eigen::VectorXd desiredAngularVelocity =
+//            ang_pid.kp * angular_error + ang_pid.ki * a_error_integral + ang_pid.kd * a_error_derivative;
+//    a_error_prev = angular_error;
+//
+//    Eigen::MatrixXd result(currentState.cols(), 2);
+//    result << desiredVelocity, desiredAngularVelocity;
+//    return result;
+//}
+
+Eigen::MatrixXd bhs_game::EPIDController::update(const Eigen::Matrix<double, 3, Eigen::Dynamic> &currentState,
+                                                 const Eigen::Matrix<double, 2, Eigen::Dynamic> &desiredState) {
+    // Slice the desired_position matrix to get the first two columns
+    Eigen::MatrixXd desired_position_slice = desiredState.topRows(2);
+
+    // Slice the current_states matrix to get the first two elements of the first dimension
+    Eigen::MatrixXd current_states_slice = currentState.topRows(2);
+
+    Eigen::MatrixXd position_error = desired_position_slice - current_states_slice;
+#ifdef VERBOSE
+    std::cout << "Position error:\n" << position_error << std::endl;
+#endif
+
+    // Compute the distance_error
+    Eigen::VectorXd distance_error = position_error.colwise().norm();
+#ifdef VERBOSE
+    std::cout << "Distance error:\n" << distance_error << std::endl;
+#endif
+    v_error_integral += distance_error;
+    Eigen::VectorXd v_error_derivative = distance_error - v_error_prev;
+    Eigen::VectorXd desiredVelocity =
+            vel_pid.kp * distance_error + vel_pid.ki * v_error_integral + vel_pid.kd * v_error_derivative;
+    v_error_prev = distance_error;
+
+    // Compute the desired_heading
+    auto s = position_error.row(1).array();
+
+    Eigen::VectorXd desired_heading = position_error.row(1).array().atan2(position_error.row(0).array());
+    // Compute the angular_error
+    Eigen::VectorXd current_heading = currentState.row(2);
+    Eigen::VectorXd angular_error = desired_heading - current_heading;
+
+    // Wrap the angular_error to the range [-pi, pi]
+    angular_error = angular_error.array().unaryExpr(
+            [](double angle) { return std::atan2(std::sin(angle), std::cos(angle)); });
+
+#ifdef VERBOSE
+    std::cout << "Angular error:\n" << angular_error << std::endl;
+#endif
+    a_error_integral += angular_error;
+    Eigen::VectorXd a_error_derivative = angular_error - a_error_prev;
+    Eigen::VectorXd desiredAngularVelocity =
+            ang_pid.kp * angular_error + ang_pid.ki * a_error_integral + ang_pid.kd * a_error_derivative;
+    a_error_prev = angular_error;
+
+    // Concatenate desiredVelocity and desiredAngularVelocity
+    Eigen::MatrixXd result(currentState.cols(), 2);
+    result << desiredVelocity, desiredAngularVelocity;
+//    return result;
+    return result;
+}
+
+double bhs_game::EPIDController::getPositionError(Eigen::Matrix<double, 3, Eigen::Dynamic> currentState,
+                                                  Eigen::Matrix<double, 2, Eigen::Dynamic> desiredState) {
+    Eigen::Matrix<double, 2, Eigen::Dynamic> desired_position_slice = desiredState;
+    Eigen::Matrix<double, 2, Eigen::Dynamic> current_states_slice = currentState.topRows<2>();
+    return (desired_position_slice - current_states_slice).squaredNorm();
+}
+
+double bhs_game::EPIDController::getAngleError(Eigen::Matrix<double, 3, Eigen::Dynamic> currentState,
+                                               Eigen::Matrix<double, 2, Eigen::Dynamic> desiredState) {
+    Eigen::Matrix<double, 2, Eigen::Dynamic> desired_position_slice = desiredState;
+    Eigen::Matrix<double, 2, Eigen::Dynamic> current_states_slice = currentState.topRows<2>();
+
+    Eigen::MatrixXd position_error = desired_position_slice - current_states_slice;
+    Eigen::VectorXd desired_heading = (position_error.row(1).array() / position_error.row(0).array()).unaryExpr(
+            [](double ratio) { return atan2(ratio, 1.0); });
+
+    Eigen::VectorXd current_heading = currentState.row(2);
+    Eigen::VectorXd angular_error = desired_heading - current_heading;
+    angular_error = angular_error.unaryExpr([](double x) { return atan2(sin(x), cos(x)); });
+
+    return angular_error.squaredNorm();
+}
+
+void bhs_game::EPIDController::reset() {
+    int N = v_error_integral.size();
+    v_error_integral = Eigen::VectorXd::Zero(N);
+    v_error_prev = Eigen::VectorXd::Zero(N);
+    a_error_integral = Eigen::VectorXd::Zero(N);
+    a_error_prev = Eigen::VectorXd::Zero(N);
 }

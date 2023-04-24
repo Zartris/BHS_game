@@ -15,7 +15,7 @@ namespace bhs_game {
                     torch::scalar_tensor(wheel_radius, TOptions(torch::kDouble, device))),
             wheel_base(torch::scalar_tensor(wheel_base, TOptions(torch::kDouble, device))) {
         // Implement the constructor logic here
-        printf("AGV created with id: %d\n", getUniqueId());
+//        printf("AGV created with id: %d\n", getUniqueId());
     }
 
     AAGV::AAGV(int uniqueId, const Config &config) :
@@ -37,11 +37,13 @@ namespace bhs_game {
         update(dt);
     }
 
+    // TODO:: OPTIMIZE THIS
     torch::Tensor AAGV::inverse_kinematics() {
         return DifferentialDrive::differential_drive_inverse_kinematics(getLinearVelocity(), getAngularVelocity(),
                                                                         wheel_radius, wheel_base, wheel_speed);
     }
 
+    // TODO:: OPTIMIZE THIS
     torch::Tensor AAGV::forward_kinematics() {
         return DifferentialDrive::differential_drive_forward_kinematics(getLeftWheelVelocity(), getRightWheelVelocity(),
                                                                         wheel_radius, wheel_base);
@@ -61,20 +63,31 @@ namespace bhs_game {
         wheel_speed = inverse_kinematics();
     }
 
+    // TODO:: OPTIMIZE THIS
     void AAGV::update_state(double dt) {
-        auto t_dt = torch::scalar_tensor(dt, TOptions(torch::kDouble, device));
-        double orientation = getOrientation().item<double>();
+        auto deltaTime = torch::scalar_tensor(dt, TOptions(torch::kDouble, device));
+        torch::Tensor orientation = getOrientation();
 
 //        torch::Tensor A = torch::eye(3, torch::TensorOptions().dtype(torch::kDouble).device(device));
+        // create slicing on gpu
+//        torch::indexing::Slice _slice = torch::indexing::Slice();
+        // TODO:: Very slow on gpu, OPTIMIZE THIS
+        _B.index_put_({0, 0}, torch::cos(orientation) * deltaTime);
+        _B.index_put_({1, 0}, torch::sin(orientation) * deltaTime);
+        _B.index_put_({2, 1}, deltaTime);
 
-        B = torch::tensor({{std::cos(orientation) * dt, 0.},
-                           {std::sin(orientation) * dt, 0.},
-                           {0.,                         dt}}, TOptions(torch::kDouble, device));
+
+//        torch::Tensor B = torch::tensor({{torch::cos(orientation) * deltaTime, 0.},
+//                                         {torch::sin(orientation) * deltaTime, 0.},
+//                                         {0.,                                  deltaTime}},
+//                                        TOptions(torch::kDouble, device));
+//        double data[] = {torch::cos(orientation).*dt, 0., torch::sin(orientation) * dt, 0., 0., dt};
+//        torch::Tensor B = torch::from_blob(data, {3, 2}, torch::kDouble).to(device);
 
 
         torch::Tensor vel = torch::stack({getLinearVelocity(), getAngularVelocity()});
 
-        torch::Tensor new_state = A.matmul(getState()) + B.matmul(vel);
+        torch::Tensor new_state = A.matmul(getState()) + _B.matmul(vel);
 #if defined(VERBOSE)
         std::cout << "Old state: " << getState() << std::endl;
         std::cout << "New state: " << new_state << std::endl;

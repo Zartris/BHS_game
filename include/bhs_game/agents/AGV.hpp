@@ -55,8 +55,11 @@ namespace bhs_game {
                 device)); // 0: left wheel velocity (rad/s), 1: right wheel velocity (rad/s)
         std::vector<torch::Tensor> path = std::vector<torch::Tensor>();
         const torch::Tensor A = torch::eye(3, TOptions(torch::kDouble, device));
-        torch::Tensor B = torch::zeros({3, 2}, TOptions(torch::kDouble, device));
-
+        torch::Tensor _B = torch::zeros({3, 2}, TOptions(torch::kDouble, device));
+        torch::Tensor _slice = torch::tensor({{0, 0},
+                                              {1, 0},
+                                              {2, 1}}, TOptions(torch::kLong, device));
+//        auto Ba = _B.packed_accessor<torch::kDouble, 2>();
     public:
         // Methods
         AAGV(int uniqueId, Battery battery, MotorConfig motor_config, float wheel_radius, float wheel_base);

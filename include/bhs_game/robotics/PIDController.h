@@ -7,7 +7,9 @@
 
 # include "bhs_game/utils/tensor_alias.h"
 # include "torch/torch.h"
-#include "bhs_game/utils/global_device.h"
+# include "bhs_game/utils/global_device.h"
+# include "Eigen/Dense"
+# include "Eigen/Core"
 
 namespace bhs_game {
     struct PIDValues {
@@ -61,6 +63,52 @@ namespace bhs_game {
         TScalarDouble getPositionError(Tensor3Double currentState, Tensor3Double desiredState);
 
         TScalarDouble getAngleError(Tensor3Double currentState, Tensor3Double desiredState);
+
+        void reset();
+
+    };
+
+
+    struct EPIDValues {
+        double kp;
+        double ki;
+        double kd;
+    };
+
+    class EPIDController {
+    private:
+        EPIDValues vel_pid;
+        EPIDValues ang_pid;
+        Eigen::VectorXd v_error_integral;
+        Eigen::VectorXd v_error_prev;
+        Eigen::VectorXd a_error_integral;
+        Eigen::VectorXd a_error_prev;
+
+    public:
+        EPIDController(EPIDValues vel_pid, EPIDValues angle_pid, int N = 1) : vel_pid(vel_pid), ang_pid(angle_pid) {
+            v_error_integral = Eigen::VectorXd::Zero(N);
+            v_error_prev = Eigen::VectorXd::Zero(N);
+            a_error_integral = Eigen::VectorXd::Zero(N);
+            a_error_prev = Eigen::VectorXd::Zero(N);
+        }
+
+        EPIDController(double vkp, double vki, double vkd, double akp, double aki, double akd, int N = 1) {
+            vel_pid = EPIDValues{vkp, vki, vkd};
+            ang_pid = EPIDValues{akp, aki, akd};
+            v_error_integral = Eigen::VectorXd::Zero(N);
+            v_error_prev = Eigen::VectorXd::Zero(N);
+            a_error_integral = Eigen::VectorXd::Zero(N);
+            a_error_prev = Eigen::VectorXd::Zero(N);
+        }
+
+        Eigen::MatrixXd update(const Eigen::Matrix<double, 3, Eigen::Dynamic> &currentState,
+                               const Eigen::Matrix<double, 2, Eigen::Dynamic> &desiredState);
+
+        double getPositionError(Eigen::Matrix<double, 3, Eigen::Dynamic> currentState,
+                                Eigen::Matrix<double, 2, Eigen::Dynamic> desiredState);
+
+        double getAngleError(Eigen::Matrix<double, 3, Eigen::Dynamic> currentState,
+                             Eigen::Matrix<double, 2, Eigen::Dynamic> desiredState);
 
         void reset();
 
