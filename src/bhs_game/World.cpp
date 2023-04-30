@@ -152,7 +152,7 @@ namespace bhs_game {
 
         // Move the entire Tensor to CPU
         indx_close_tensor = indx_close_tensor.to(torch::kCPU);
-        std::vector<Agent *> neighbors;
+        std::vector < Agent * > neighbors;
 //        for (auto indx: indx_close) {
 //            // TODO:: Be more performant, here we are having a vector with gpu tensor, and then we are converting to cpu one by one
 //            int i = indx.item<int>();
