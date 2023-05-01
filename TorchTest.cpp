@@ -6,6 +6,12 @@
 #include <thread>
 #include "Eigen/Dense"
 #include "bhs_game/testAgents/AGV.hpp"
+#include <glm/gtx/string_cast.hpp>
+#include <tbb/parallel_for.h>
+#include <tbb/blocked_range.h>
+//#include <tbb/tbb.h>
+#include <tbb/global_control.h>
+//#include <tbb/task_scheduler_init.h>
 
 
 void testSharedMemoryMatrix() {
@@ -183,7 +189,7 @@ void eigen_vs_torch() {
     et_matrix_index_test();
 }
 
-void pid_test(torch::Tensor PositionMatrix, std::vector<bhs_game::AAGV *> A, int N, int testRounds) {
+void torch_pid_test(torch::Tensor PositionMatrix, std::vector<bhs_game::TorchAAGV *> A, int N, int testRounds) {
     std::cout << "PID Torch test" << std::endl;
     torch::Tensor goals = torch::full({N, 2}, {0}, TOptions(torch::kDouble, device));
 //    std::cout << "goals: \n" << goals << std::endl;
@@ -208,6 +214,9 @@ void pid_test(torch::Tensor PositionMatrix, std::vector<bhs_game::AAGV *> A, int
 ////                std::cout << "wheel_speed: \n" << a->getWheelSpeed() << std::endl;
 //        }
         // spawn threads
+
+
+
         for (int t = 0; t < num_threads; t++) {
             threads.emplace_back([=] {
                 int start = t * chunk_size;
@@ -222,6 +231,8 @@ void pid_test(torch::Tensor PositionMatrix, std::vector<bhs_game::AAGV *> A, int
             });
         }
 
+
+
         // join threads
         for (auto &thread: threads) {
             thread.join();
@@ -234,8 +245,6 @@ void pid_test(torch::Tensor PositionMatrix, std::vector<bhs_game::AAGV *> A, int
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
     std::cout << "Time taken by function: "
               << duration.count() / testRounds * 0.001 << " milliseconds" << std::endl;
-
-
 }
 
 void
@@ -263,15 +272,25 @@ eigen_pid_test(std::vector<bhs_game::EigenAAGV *> A, int N, int testRounds) {
         std::cout << "updates (vel, ang): \n" << update << std::endl;
 #endif
 
-        for (int j = 0; j < N; j++) {
-            auto a = A[j];
-            a->setLinearVelocity(update(j, 0));
-            a->setAngularVelocity(update(j, 1));
-            a->inverse_kinematics(true);
-            a->step(0.01);
-            // Update Position Matrix
-//            PositionMatrix.col(j) = a->getState();
-        }
+        tbb::parallel_for(tbb::blocked_range<size_t>(0, N), [&](const tbb::blocked_range<size_t> &r) {
+            for (size_t j = r.begin(); j != r.end(); ++j) {
+                auto a = A[j];
+                a->setLinearVelocity(update(j, 0));
+                a->setAngularVelocity(update(j, 1));
+                a->inverse_kinematics(true);
+                a->step(0.01);
+            }
+        });
+
+//        for (int j = 0; j < N; j++) {
+//            auto a = A[j];
+//            a->setLinearVelocity(update(j, 0));
+//            a->setAngularVelocity(update(j, 1));
+//            a->inverse_kinematics(true);
+//            a->step(0.01);
+//            // Update Position Matrix
+////            PositionMatrix.col(j) = a->getState();
+//        }
         // Note: 0.001 us did it cost to split the forloop, this one is easier to read
         for (int j = 0; j < N; j++) {
             // Update Position Matrix
@@ -288,7 +307,57 @@ eigen_pid_test(std::vector<bhs_game::EigenAAGV *> A, int N, int testRounds) {
 //        auto a = A[j];
 //        std::cout << "state: \n" << a->getState() << std::endl;
 //    }
-    std::cout << "\nPosition matrix:\n" << PositionMatrix << std::endl;
+    std::mt19937 rng;
+    rng.seed(std::random_device()());
+    std::uniform_int_distribution<std::mt19937::result_type> dist(0, N - 1); // distribution in range [1, 6]
+    int index = dist(rng);
+    std::cout << "\nPosition matrix for agent index: " << index << "\n" << PositionMatrix.col(index) << std::endl;
+    std::cout << "Time taken by function: "
+              << duration.count() / testRounds * 0.001 << " milliseconds" << std::endl;
+}
+
+void
+glm_pid_test(std::vector<bhs_game::GLMAAGV *> A, int N, int testRounds) {
+    std::cout << "GLM PID Test" << std::endl;
+
+    double scale = 2.;
+    for (auto a: A) {
+        a->controller = bhs_game::GPIDController(0.4 * scale, 0. * scale, 0.01 * scale,
+                                                 4. * scale, 0.01 * scale, 0. * scale);
+        a->goal = glm::dvec2(0.);
+        a->setState(glm::dvec3(1, 1, 0));
+    }
+
+
+    auto start = std::chrono::high_resolution_clock::now();
+
+    // Note: Using threads added too much overhead for this test as it double the runtime
+    for (int i = 0; i < testRounds; i++) {
+#ifdef VERBOSE
+        std::cout << "\n============================" << std::endl;
+        std::cout << i << " current state:\n" << A[0]->getState() << std::endl;
+//        std::cout << "updates (vel, ang): \n" << update << std::endl;
+#endif
+        tbb::parallel_for(tbb::blocked_range<size_t>(0, N), [&](const tbb::blocked_range<size_t> &r) {
+            for (size_t j = r.begin(); j != r.end(); ++j) {
+                auto a = A[j];
+                a->step(0.01);
+            }
+        });
+    }
+#ifdef VERBOSE
+    std::cout << "final: current state:\n" << A[0]->getState() << std::endl;
+#endif
+
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+// get random index of A
+    std::mt19937 rng;
+    rng.seed(std::random_device()());
+    std::uniform_int_distribution<std::mt19937::result_type> dist(0, N - 1); // distribution in range [1, 6]
+    int index = dist(rng);
+    std::cout << "\nPosition vector for agent index: " << index << "\n" << glm::to_string(A[index]->getState())
+              << std::endl;
     std::cout << "Time taken by function: "
               << duration.count() / testRounds * 0.001 << " milliseconds" << std::endl;
 }
@@ -306,66 +375,77 @@ int main() {
     try {
         printf("The main function is running \n");
 //        device = torch::kCUDA;
-        int N = 1000;
-        int testRounds = 10000;
-        Eigen::setNbThreads(6);
+        int N = 10000;
+        int testRounds = 100;
+        int nthread = 8;
+        tbb::global_control c(tbb::global_control::max_allowed_parallelism, nthread);
+
+//        tbb::task_scheduler_init init(nthread);
+        Eigen::setNbThreads(nthread);
+
         auto n = Eigen::nbThreads();
         Eigen::initParallel();
         std::cout << "Eigen threads: " << n << std::endl;
 //    testSharedMemoryMatrix();
 
-        // Option one, when initializing the model we have to make a matrix C with all the pose and then slide it after to give to the robots:
-        torch::Tensor PositionMatrix = torch::ones({N, 3, 1}, TOptions(torch::kDouble, device));
-//        std::cout << "PositionMatrix: " << PositionMatrix << std::endl;
-        std::vector<bhs_game::AAGV *> A;
-        A.reserve(N);
-        int offset = 0;
-        for (int i = 0; i < N; i++) {
-            torch::Tensor robot_pos = PositionMatrix.as_strided({3, 1}, {1, 1}, {offset});
-            offset += 3;
-//            std::cout << "robot_pos: " << robot_pos << std::endl;
-            auto a1 = new bhs_game::AAGV(0, {100, 100},
-                                         bhs_game::MotorConfig(1, 1, 1, 0.1),
-                                         0.1, 0.5);
-            A.push_back(a1);
-            a1->overwriteState(robot_pos);
-//            std::cout << "a1: " << a1->getState() << std::endl;
-        }
-//
-//        PositionMatrix.mul_(10);
-//        std::cout << "PositionMatrix: " << PositionMatrix << std::endl;
-//        for (auto a: A) {
-//            std::cout << "a1: " << a->getState() << std::endl;
-//        }
 
-        for (auto a: A) {
-            a->setState(torch::tensor({{1},
-                                       {1},
-                                       {0}}, TOptions(torch::kDouble, device)));
-//            std::cout << "a1: " << a->getState() << std::endl;
-        }
         std::cout << "================================================================================" << std::endl;
-        std::cout << "========================       VECTOR PID      =================================" << std::endl;
+        std::cout << "========================        TORCH PID      =================================" << std::endl;
         std::cout << "================================================================================" << std::endl;
-//        pid_test(PositionMatrix, A, N, testRounds);
+        {// Option one, when initializing the model we have to make a matrix C with all the pose and then slide it after to give to the robots:
+            torch::Tensor PositionMatrix = torch::ones({N, 3, 1}, TOptions(torch::kDouble, device));
+            std::vector<bhs_game::TorchAAGV *> A;
+            A.reserve(N);
+            int offset = 0;
+            for (int i = 0; i < N; i++) {
+                torch::Tensor robot_pos = PositionMatrix.as_strided({3, 1}, {1, 1}, {offset});
+                offset += 3;
+                auto a1 = new bhs_game::TorchAAGV(0, {100, 100},
+                                                  bhs_game::TMotorConfig(1, 1, 1, 0.1),
+                                                  0.1, 0.5);
+                A.push_back(a1);
+                a1->overwriteState(robot_pos);
+            }
 
+            for (auto a: A) {
+                a->setState(torch::tensor({{1},
+                                           {1},
+                                           {0}}, TOptions(torch::kDouble, device)));
+            }
+            torch_pid_test(PositionMatrix, A, N, testRounds);
+        }
         std::cout << "================================================================================" << std::endl;
         std::cout << "========================       EIGEN PID      =================================" << std::endl;
         std::cout << "================================================================================" << std::endl;
-        std::vector<bhs_game::EigenAAGV *> Aa;
-        Aa.reserve(N);
-        for (int i = 0; i < N; i++) {
+        {
+            std::vector<bhs_game::EigenAAGV *> Aa;
+            Aa.reserve(N);
+            for (int i = 0; i < N; i++) {
 //            auto robot_pos = std::make_shared<Eigen::Vector3d>(EPositionMatrix.col(i));
-            auto a2 = new bhs_game::EigenAAGV(0, {100, 100},
-                                              bhs_game::EMotorConfig(1, 1, 1, 0.1),
-                                              0.1, 0.5);
-            Aa.push_back(a2);
-            a2->setState(Eigen::Vector3d(1, 1, 0));
+                auto a2 = new bhs_game::EigenAAGV(0, {100, 100},
+                                                  bhs_game::EMotorConfig(1, 1, 1, 0.1),
+                                                  0.1, 0.5);
+                Aa.push_back(a2);
+                a2->setState(Eigen::Vector3d(1, 1, 0));
+            }
+            eigen_pid_test(Aa, N, testRounds);
         }
 
-        eigen_pid_test(Aa, N, testRounds);
-
-
+        std::cout << "================================================================================" << std::endl;
+        std::cout << "========================         GLM PID       =================================" << std::endl;
+        std::cout << "================================================================================" << std::endl;
+        {
+            std::vector<bhs_game::GLMAAGV *> Ab;
+            Ab.reserve(N);
+            for (int i = 0; i < N; i++) {
+                auto a2 = new bhs_game::GLMAAGV(0, {100, 100},
+                                                bhs_game::EMotorConfig(1, 1, 1, 0.1),
+                                                0.1, 0.5);
+                Ab.push_back(a2);
+                a2->setState(glm::dvec3(1, 1, 0));
+            }
+            glm_pid_test(Ab, N, testRounds);
+        }
 
         // Option two, loop over all positions and make the matrix everytime:
 //        eigen_vs_torch();

@@ -1,40 +1,41 @@
-#ifndef BHS_VIS_WORLD_H
-#define BHS_VIS_WORLD_H
+#pragma once
+#define GLM_FORCE_SWIZZLE
 
 #include <cmath>
 #include <map>
 #include <stdexcept>
 #include <vector>
 #include "bhs_game/agents/Agent.hpp"
-#include "bhs_game/utils/tensor_alias.h"
+#include "glm/gtx/norm.hpp"
+
 
 namespace bhs_game {
     class ContinuousSpace {
     public:
-        ContinuousSpace(TScalarDouble x_max, TScalarDouble y_max, bool torus,
-                        TScalarDouble x_min = torch::scalar_tensor(0, TOptions(torch::kInt, device)),
-                        TScalarDouble y_min = torch::scalar_tensor(0, TOptions(torch::kInt, device)));
+        ContinuousSpace(double x_max, double y_max, bool torus,
+                        double x_min = 0.,
+                        double y_min = 0.);
 
-        void placeAgent(Agent *agent, TensorXDouble pos);
+        void placeAgent(Agent *agent, glm::dvec3 pos);
 
-        void moveAgent(Agent *agent, TensorXDouble &pos);
+        void moveAgent(Agent *agent, glm::dvec3 &pos);
 
         void removeAgent(Agent *agent);
 
         // Additional methods go here
 
     private:
-        TScalarDouble x_min;
-        TScalarDouble x_max;
-        TScalarDouble width;
-        TScalarDouble y_min;
-        TScalarDouble y_max;
-        TScalarDouble height;
+        double x_min;
+        double x_max;
+        double width;
+        double y_min;
+        double y_max;
+        double height;
         bool torus;
-        Tensor2Double center;
-        Tensor2Double size;
+        glm::dvec2 center;
+        glm::dvec2 size;
 
-        std::vector<Tensor3Double> agent_points;
+        std::vector<glm::dvec3> agent_points;
         std::map<size_t, Agent *> index_to_agent;
         std::map<Agent *, size_t> agent_to_index;
         std::vector<int> static_agents;
@@ -45,18 +46,16 @@ namespace bhs_game {
         // Additional private methods go here
         void invalidate_agent_cache();
 
-        TensorXDouble torus_adj(TensorXDouble &pos);
+        glm::dvec3 torus_adj(glm::dvec3 &pos);
 
-        bool out_of_bounds(const TensorXDouble &pos) const;
+        bool out_of_bounds(const glm::dvec3 &pos) const;
 
         void buildAgentCache();
 
-        std::vector<Agent *> getNeighborhoodFromList(const TensorXDouble &pos, double radius,
+        std::vector<Agent *> getNeighborhoodFromList(const glm::dvec3 &pos, double radius,
                                                      std::vector<int> &agent_index_search_list,
                                                      bool include_center = false);
 
 
     };
 } // bhs_game
-
-#endif //BHS_VIS_WORLD_H

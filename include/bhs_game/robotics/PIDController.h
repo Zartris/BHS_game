@@ -10,6 +10,8 @@
 # include "bhs_game/utils/global_device.h"
 # include "Eigen/Dense"
 # include "Eigen/Core"
+#include "glm/ext/vector_double2.hpp"
+#include "glm/vec3.hpp"
 
 namespace bhs_game {
     struct PIDValues {
@@ -109,6 +111,43 @@ namespace bhs_game {
 
         double getAngleError(Eigen::Matrix<double, 3, Eigen::Dynamic> currentState,
                              Eigen::Matrix<double, 2, Eigen::Dynamic> desiredState);
+
+        void reset();
+
+    };
+
+    struct GPIDValues {
+        double kp;
+        double ki;
+        double kd;
+    };
+
+    class GPIDController {
+    private:
+        GPIDValues vel_pid;
+        GPIDValues ang_pid;
+        double v_error_integral = 0;
+        double v_error_prev = 0;
+        double a_error_integral = 0;
+        double a_error_prev = 0;
+
+    public:
+        GPIDController(GPIDValues vel_pid, GPIDValues angle_pid) : vel_pid(vel_pid), ang_pid(angle_pid) {
+        }
+
+        GPIDController(double vkp, double vki, double vkd, double akp, double aki, double akd) {
+            vel_pid = GPIDValues{vkp, vki, vkd};
+            ang_pid = GPIDValues{akp, aki, akd};
+        }
+
+        glm::dvec2 update(const glm::dvec3 &currentState,
+                          const glm::dvec2 &desiredState);
+
+        double getPositionError(glm::dvec3 currentState,
+                                glm::dvec2 desiredState);
+
+        double getAngleError(glm::dvec3 currentState,
+                             glm::dvec2 desiredState);
 
         void reset();
 

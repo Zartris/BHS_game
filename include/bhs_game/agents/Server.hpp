@@ -2,12 +2,12 @@
 // Created by zartris on 4/8/23.
 //
 
-#ifndef BHS_GAME_SERVER_H
-#define BHS_GAME_SERVER_H
+#pragma once
 
+#include <chrono>
+#include <vector>
 #include "Agent.hpp"
-#include "bhs_game/utils/global_device.h"
-#include "bhs_game/utils/tensor_alias.h"
+#include "bhs_game/utils/Timer.h"
 
 namespace bhs_game {
     class AServer : public Agent {
@@ -33,7 +33,7 @@ namespace bhs_game {
 
     private:
         // Add private methods here
-        std::vector<TensorXDouble> computePath();
+        std::vector<glm::dvec2> computePath();
 
 
     public:
@@ -45,9 +45,3 @@ namespace bhs_game {
     };
 
 } // bhs_game
-
-
-
-
-
-#endif //BHS_GAME_SERVER_H

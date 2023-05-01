@@ -11,11 +11,6 @@ namespace bhs_game {
             _seed = rd();
         }
         random.seed(_seed);
-
-        if ( allow_gpu && torch::cuda::is_available()) {
-            std::cout << "CUDA is available! Training on GPU." << std::endl;
-            device = torch::kCUDA;
-        }
     }
 
     /*
@@ -27,9 +22,15 @@ namespace bhs_game {
      *
      */
     void Model::step() {
+        // uses internal physic step time
+        step(physic_step_time);
+    }
+
+    void Model::step(const double delta_time) {
+        ScopedTimer timer("Model::step");
         // Implement the single step logic here
         printf("Step %i \n", step_count);
-        scheduler->step(physic_step_time);
+        scheduler->step(delta_time);
 //        world->step(physic_step_time);
         step_count += 1;
     }

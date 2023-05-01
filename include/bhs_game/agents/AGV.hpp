@@ -8,7 +8,7 @@
 #include "Agent.hpp"
 #include "bhs_game/robotics/DifferentialDrive.hpp"
 #include "bhs_game/utils/config.h"
-#include "bhs_game/utils/tensor_alias.h"
+#include "bhs_game/robotics/PIDController.h"
 
 namespace bhs_game {
     enum class WorkState {
@@ -27,14 +27,14 @@ namespace bhs_game {
         double max_linear_vel;
         double max_acceleration;
         double max_deceleration;
-        TScalarDouble max_angular_vel;
+        double max_angular_vel;
 
 //        MotorConfig() = default;
 
         MotorConfig(double max_linear_vel, double maxAcceleration, double maxDeceleration, double wheel_radius)
                 : max_linear_vel(max_linear_vel), max_acceleration(maxAcceleration), max_deceleration(maxDeceleration) {
             // convert from m/s to rad/s
-            max_angular_vel = torch::scalar_tensor({max_linear_vel / wheel_radius}, TOptions(torch::kDouble, device));
+            max_angular_vel = max_linear_vel / wheel_radius;
         }
     };
 
@@ -47,19 +47,13 @@ namespace bhs_game {
         bool collided = false;
         Battery battery;
         MotorConfig motor_config;
-        TScalarDouble wheel_radius; // Radius of the wheels (m)
-        TScalarDouble wheel_base; // Distance between the wheels (m)
-        TensorXDouble velocity = torch::zeros({3, 1}, torch::TensorOptions().dtype(torch::kDouble).device(
-                device)); // 0: linear velocity, 2: angular velocity
-        TensorXDouble wheel_speed = torch::zeros({2}, torch::TensorOptions().dtype(torch::kDouble).device(
-                device)); // 0: left wheel velocity (rad/s), 1: right wheel velocity (rad/s)
-        std::vector<torch::Tensor> path = std::vector<torch::Tensor>();
-        const torch::Tensor A = torch::eye(3, TOptions(torch::kDouble, device));
-        torch::Tensor _B = torch::zeros({3, 2}, TOptions(torch::kDouble, device));
-        torch::Tensor _slice = torch::tensor({{0, 0},
-                                              {1, 0},
-                                              {2, 1}}, TOptions(torch::kLong, device));
-//        auto Ba = _B.packed_accessor<torch::kDouble, 2>();
+        double wheel_radius; // Radius of the wheels (m)
+        double wheel_base; // Distance between the wheels (m)
+        glm::dvec2 velocity = glm::dvec2(0.0); // 0: linear velocity, 2: angular velocity
+        glm::dvec2 wheel_speed = glm::dvec2(0.0); // 0: left wheel velocity (rad/s), 1: right wheel velocity (rad/s)
+        std::vector<glm::dvec2> path = std::vector<glm::dvec2>(500);
+        glm::dvec2 goal = glm::dvec2(0.0);
+
     public:
         // Methods
         AAGV(int uniqueId, Battery battery, MotorConfig motor_config, float wheel_radius, float wheel_base);
@@ -70,24 +64,24 @@ namespace bhs_game {
 
         void step(double dt) override;
 
-        torch::Tensor inverse_kinematics();
+        glm::dvec2 inverse_kinematics(bool set_result = false);
 
-        torch::Tensor forward_kinematics();
+        glm::dvec2 forward_kinematics(bool set_result = false);
+
+        bhs_game::GPIDController controller = GPIDController(1., 0., 0.1, 1., 0., 0.1);
 
     private:
 
-        //  Methods
+        // Methods
         void update_state(double dt);
 
         void update(double dt); // use step to update
 
         void requestReplanning();
 
-
-
-// Getter and setters
+        // Getter and setters
     public:
-        void setPath(std::vector<torch::Tensor> path) {
+        void setPath(std::vector<glm::dvec2> path) {
             this->path = path;
         }
 
@@ -115,52 +109,56 @@ namespace bhs_game {
             return motor_config;
         }
 
-        [[nodiscard]] TScalarDouble getWheelRadius() const {
+        [[nodiscard]] double getWheelRadius() const {
             return wheel_radius;
         }
 
-        [[nodiscard]] TScalarDouble getWheelBase() const {
+        [[nodiscard]] double getWheelBase() const {
             return wheel_base;
         }
 
-        [[nodiscard]] const TensorXDouble &getVelocity() const {
+        [[nodiscard]] const glm::dvec2 &getVelocity() const {
             return velocity;
         }
 
-        [[nodiscard]] const TensorXDouble &getWheelSpeed() const {
+        [[nodiscard]] const glm::dvec2 &getWheelSpeed() const {
             return wheel_speed;
         }
 
-        [[nodiscard]] const std::vector<TensorXDouble> &getPath() const {
+        [[nodiscard]] const std::vector<glm::dvec2> &getPath() const {
             return path;
         }
 
-        TScalarDouble getLinearVelocity() {
+        double getLinearVelocity() {
             return velocity[0];
         }
 
-        TScalarDouble getAngularVelocity() {
-            return velocity[2];
+        double getAngularVelocity() {
+            return velocity[1];
         }
 
-        TScalarDouble getLeftWheelVelocity() {
+        double getLeftWheelVelocity() {
             return wheel_speed[0];
         }
 
-        TScalarDouble getRightWheelVelocity() {
+        double getRightWheelVelocity() {
             return wheel_speed[1];
         }
 
-        void setLinearVelocity(const TScalarDouble &linear_velocity) {
-            velocity[0].copy_(linear_velocity);
+        [[nodiscard]] const glm::dvec2 &getGoal() const {
+            return goal;
         }
 
-        void setAngularVelocity(const TScalarDouble &angular_velocity) {
-            velocity[2].copy_(angular_velocity);
+        void setLinearVelocity(double linear_velocity) {
+            velocity[0] = linear_velocity;
         }
 
-        void overwriteState(TensorXDouble state) {
-            this->state = state;
+        void setAngularVelocity(double angular_velocity) {
+            velocity[1] = angular_velocity;
+        }
+
+        void setGoal(glm::dvec2 goal) {
+            this->goal = goal;
         }
 
     private:

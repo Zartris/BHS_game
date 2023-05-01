@@ -2,13 +2,13 @@
 // Created by Zartris on 4/8/23.
 //
 
-#ifndef BHS_VIS_SCHEDULER_H
-#define BHS_VIS_SCHEDULER_H
+#pragma once
 
 #include <string>
 #include <vector>
 #include <map>
 #include <unordered_set>
+#include "unordered_map"
 #include <random>
 #include "bhs_game/agents/Agent.hpp"
 
@@ -71,5 +71,3 @@ namespace bhs_game {
     };
 
 } // bhs_game
-
-#endif //BHS_VIS_SCHEDULER_H

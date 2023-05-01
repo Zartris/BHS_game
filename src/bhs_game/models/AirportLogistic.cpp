@@ -30,6 +30,13 @@ namespace bhs_game {
                                   MotorConfig(10., 1., 1., 0.1),
                                   0.1, 0.5);
             scheduler->addAgent(agent);
+
+            // get a random x,y position
+            std::uniform_real_distribution dis(0., 1.);
+            double x = dis(random) * config.grid_width;
+            double y = dis(random) * config.grid_height;
+            // place the agent in the world
+            world->placeAgent(agent, {x, y, 0.});
         }
 
         for (int i = 0; i < 1; i++) {
@@ -43,10 +50,7 @@ namespace bhs_game {
         if (file_name.substr(file_name.find_last_of(".") + 1) == "yaml") {
             config.load_from_yaml(file_name);
             // Todo:: change to read from other file
-            world = new ContinuousSpace(
-                    torch::scalar_tensor(config.grid_width, TOptions(torch::kDouble, device)),
-                    torch::scalar_tensor(config.grid_height, TOptions(torch::kDouble, device)),
-                    false);
+            world = new ContinuousSpace(config.grid_width, config.grid_height, false);
             populate_world_from_image(config);
             int debug = 0;
         } else {
@@ -57,11 +61,11 @@ namespace bhs_game {
     void AirportLogistic::populate_world_from_image(const Config config) {
         std::cout << "Populating world from image" << std::endl;
         ImageScenario scenarioConfig = config.image_scenario;
-        torch::Tensor emptySpaceTensor = torch::ones({config.grid_width, config.grid_height});
-        obstacleMap = torch::zeros({config.grid_width, config.grid_height});
-        chargingStationMap = torch::zeros({config.grid_width, config.grid_height});
-        InfeedMap = torch::zeros({config.grid_width, config.grid_height});
-        chuteMap = torch::zeros({config.grid_width, config.grid_height});
+        Eigen::MatrixXi emptySpaceMat = Eigen::MatrixXi::Ones(config.grid_width, config.grid_height);
+        obstacleMap = Eigen::MatrixXi::Zero(config.grid_width, config.grid_height);
+        chargingStationMap = Eigen::MatrixXi::Zero(config.grid_width, config.grid_height);
+        InfeedMap = Eigen::MatrixXi::Zero(config.grid_width, config.grid_height);
+        chuteMap = Eigen::MatrixXi::Zero(config.grid_width, config.grid_height);
 
 
         // 1. First check for images that exist and insert in map
@@ -85,10 +89,9 @@ namespace bhs_game {
                     auto val = obstacleImg[i][j];
                     if (val == scenarioConfig.obstacle_color) { // Assuming obstacles have a non-zero value in the image
                         AObstacle *obstacle = new AObstacle(next_id(), config);
-                        world->placeAgent(obstacle, torch::tensor({static_cast<double>(i), static_cast<double>(j), 0.},
-                                                                  TOptions(torch::kDouble, device)));
+                        world->placeAgent(obstacle, glm::dvec3{static_cast<double>(i), static_cast<double>(j), 0.});
 
-                        emptySpaceTensor.index_put_({i, j}, 0); // Mark the cell as occupied in the emptySpaceMap
+                        emptySpaceMat(i, j) = 0; // Mark the cell as occupied in the emptySpaceMap
 //                        obstacleMap(i, j) = 1;
                     }
                 }
@@ -116,10 +119,9 @@ namespace bhs_game {
                         scenarioConfig.charging_station_color) { // Assuming charging stations have a non-zero value in the image
                         AChargingStation *chargingStation = new AChargingStation(next_id(), config);
                         world->placeAgent(chargingStation,
-                                          torch::tensor({static_cast<double>(i), static_cast<double>(j), 0.},
-                                                        TOptions(torch::kDouble, device)));
+                                          glm::dvec3{static_cast<double>(i), static_cast<double>(j), 0.});
                         scheduler->addAgent(chargingStation);
-                        emptySpaceTensor.index_put_({i, j}, 0); // Mark the cell as occupied in the emptySpaceMap
+                        emptySpaceMat(i, j) = 0; // Mark the cell as occupied in the emptySpaceMap
 //                        chargingStationMap(i, j) = 1;
                     }
                 }
@@ -148,10 +150,9 @@ namespace bhs_game {
                     if (val ==
                         scenarioConfig.infeed_color) { // Assuming charging stations have a non-zero value in the image
                         AInfeed *infeed = new AInfeed(next_id(), config);
-                        world->placeAgent(infeed, torch::tensor({static_cast<double>(i), static_cast<double>(j), 0.},
-                                                                TOptions(torch::kDouble, device)));
+                        world->placeAgent(infeed, glm::dvec3{static_cast<double>(i), static_cast<double>(j), 0.});
                         scheduler->addAgent(infeed);
-                        emptySpaceTensor.index_put_({i, j}, 0); // Mark the cell as occupied in the emptySpaceMap
+                        emptySpaceMat(i, j) = 0; // Mark the cell as occupied in the emptySpaceMap
 
 //                        InfeedMap(i, j) = 1;
                     }
@@ -180,10 +181,9 @@ namespace bhs_game {
                     if (val ==
                         scenarioConfig.chute_color) { // Assuming charging stations have a non-zero value in the image
                         AChute *chute = new AChute(next_id(), config);
-                        world->placeAgent(chute, torch::tensor({static_cast<double>(i), static_cast<double>(j), 0.},
-                                                               TOptions(torch::kDouble, device)));
+                        world->placeAgent(chute, glm::dvec3{static_cast<double>(i), static_cast<double>(j), 0.});
                         scheduler->addAgent(chute);
-                        emptySpaceTensor.index_put_({i, j}, 0); // Mark the cell as occupied in the emptySpaceMap
+                        emptySpaceMat(i, j) = 0; // Mark the cell as occupied in the emptySpaceMap
 
 //                        chuteMap(i, j) = 1;
                     }
@@ -212,11 +212,9 @@ namespace bhs_game {
                     if (val ==
                         scenarioConfig.agv_color) { // Assuming charging stations have a non-zero value in the image
                         AAGV *agv = new AAGV(next_id(), config);
-                        world->placeAgent(agv, torch::tensor({static_cast<double>(i), static_cast<double>(j), 0.},
-                                                             TOptions(torch::kDouble, device)));
+                        world->placeAgent(agv, glm::dvec3{static_cast<double>(i), static_cast<double>(j), 0.});
                         scheduler->addAgent(agv);
-                        emptySpaceTensor.index_put_({i, j}, 0); // Mark the cell as occupied in the emptySpaceMap
-
+                        emptySpaceMat(i, j) = 0; // Mark the cell as occupied in the emptySpaceMap
                         agvCount++;
                     }
                 }
@@ -229,20 +227,24 @@ namespace bhs_game {
 
         /////////////////////// MAKE REST OF AGV ////////////////////////////
         // Where returns [tensor, tensor] where tensor[0] is the row indices and tensor[1] is the col indices
-        std::vector <torch::Tensor> free_space_indx = torch::where(emptySpaceTensor == 1);
-        Tensor2Double t_free_space_indx = torch::stack({free_space_indx[0], free_space_indx[1]}, 0).t();
+        std::vector<glm::ivec2> free_space_indices;
+        for (int i = 0; i < emptySpaceMat.rows(); ++i) {
+            for (int j = 0; j < emptySpaceMat.cols(); ++j) {
+                if (emptySpaceMat(i, j) == 1) {
+                    free_space_indices.emplace_back(i, j);
+                }
+            }
+        }
 
-        std::vector<int> indices(t_free_space_indx.sizes()[0]);
-        std::iota(indices.begin(), indices.end(), 0); // Fill with 0, 1, ..., size.
-        std::shuffle(indices.begin(), indices.end(), random);
+        std::random_device random_device;
+        std::mt19937 random(random_device());
+        std::shuffle(free_space_indices.begin(), free_space_indices.end(), random);
+
         int count = 0;
         for (int i = agvCount; i < scenarioConfig.num_agvs; ++i) {
-            int random_indx = indices[count];
-            int x = free_space_indx[0].index({random_indx}).item<int>();
-            int y = free_space_indx[1].index({random_indx}).item<int>();
+            glm::ivec2 free_pos = free_space_indices[count++];
             AAGV *agv = new AAGV(next_id(), config);
-            world->placeAgent(agv, torch::tensor({static_cast<double>(x), static_cast<double>(y), 0.},
-                                                 TOptions(torch::kDouble, device)));
+            world->placeAgent(agv, glm::dvec3(free_pos, 0));
             scheduler->addAgent(agv);
         }
     }

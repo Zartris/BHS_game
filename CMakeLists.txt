@@ -44,11 +44,19 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_definitions(-DDEBUG -URELEASE)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
+
+
     # comment this if you want to remove the verbose output
     #    add_definitions(-DVERBOSE)
 elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
     message("${Blue}Building in release mode${ColourReset}")
     add_definitions(-DRELEASE -UVERBOSE -UDEBUG)
+    #add google sanatizers
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+#    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread -g")
+
+
     # comment this if you want to remove the verbose output
 elseif (CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
     message("${Blue}Building in release mode${ColourReset}")
@@ -144,6 +152,16 @@ else ()
     message(WARNING "OpenMP NOT found, so it will not be used for Eigen multithreading")
 endif ()
 
+# Find the TBB package
+find_package(TBB REQUIRED)
+if (TBB_FOUND)
+    message(STATUS "TBB found")
+    message(STATUS "TBB_INCLUDE_DIRS: ${TBB_INCLUDE_DIRS}")
+    message(STATUS "TBB_LIBRARIES: ${TBB_LIBRARIES}")
+    message(STATUS "USED FOR multithreading")
+else ()
+    message(WARNING "TBB NOT found, so it will not be used for multithreading")
+endif ()
 
 # Needed for boost
 set(BoostRoot "${CMAKE_CURRENT_SOURCE_DIR}/third_party/boost")
@@ -198,6 +216,7 @@ target_link_libraries(bhs_game_lib PUBLIC
         eigen
         dl
         OpenMP::OpenMP_CXX
+        TBB::tbb
         )
 
 # Install your library and export it for use in other projects

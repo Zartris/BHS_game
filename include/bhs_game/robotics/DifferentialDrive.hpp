@@ -5,6 +5,8 @@
 #include "bhs_game/utils/tensor_alias.h"
 #include "bhs_game/utils/global_device.h"
 #include "Eigen/Core"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_double2.hpp"
 
 class DifferentialDrive {
 public:
@@ -50,6 +52,27 @@ public:
         double w_left = v_left / wheel_radius;
 
         return Eigen::Vector2d(w_left, w_right);
+    }
+
+    /**
+ * Calculate the wheel angular velocities for a differential drive robot.
+ *
+ * @param v             Linear velocity of the robot (m/s)
+ * @param omega         Angular velocity of the robot (rad/s)
+ * @param wheel_radius  Radius of the wheels (m)
+ * @param wheel_distance Distance between the wheels (m)
+ * @return glm::dvec2 containing the left wheel angular velocity (rad/s) and right wheel angular velocity (rad/s)
+ */
+    static glm::dvec2
+    differential_drive_inverse_kinematics_glm(double v, double omega, double wheel_radius,
+                                              double wheel_distance) {
+        double v_right = v + (omega * wheel_distance) / 2.0;
+        double v_left = v - (omega * wheel_distance) / 2.0;
+
+        double w_right = v_right / wheel_radius;
+        double w_left = v_left / wheel_radius;
+
+        return glm::dvec2(w_left, w_right);
     }
 
     /**
@@ -101,6 +124,26 @@ public:
         double omega = (v_right - v_left) / wheel_distance;
         return Eigen::Vector3d(v, 0, omega);
 //        return Eigen::Vector2d(v, omega);
+    }
+
+    /**
+ * Calculate the linear and angular velocities of a differential drive robot.
+ *
+ * @param w_left        Left wheel angular velocity (rad/s)
+ * @param w_right       Right wheel angular velocity (rad/s)
+ * @param wheel_radius  Radius of the wheels (m)
+ * @param wheel_distance Distance between the wheels (m)
+ * @return glm::dvec3 containing the linear velocity of the robot (m/s) and angular velocity of the robot (rad/s)
+ */
+    static glm::dvec2
+    differential_drive_forward_kinematics_glm(double w_left, double w_right, double wheel_radius,
+                                              double wheel_distance) {
+        double v_right = w_right * wheel_radius;
+        double v_left = w_left * wheel_radius;
+
+        double v = (v_right + v_left) / 2.0;
+        double omega = (v_right - v_left) / wheel_distance;
+        return glm::dvec2(v, omega);
     }
 };
 

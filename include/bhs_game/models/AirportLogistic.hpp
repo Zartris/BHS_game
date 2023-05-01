@@ -10,19 +10,16 @@
 #include "bhs_game/agents/Server.hpp"
 #include "bhs_game/utils/config.h"
 #include <yaml-cpp/yaml.h>
-#include "torch/torch.h"
-#include "bhs_game/utils/global_device.h"
-#include "bhs_game/utils/tensor_alias.h"
 
 
 namespace bhs_game {
     class AirportLogistic : public Model {
     private:
         Config config = Config();
-        TensorXInt obstacleMap;
-        TensorXInt chargingStationMap;
-        TensorXInt InfeedMap;
-        TensorXInt chuteMap;
+        Eigen::MatrixXi obstacleMap;
+        Eigen::MatrixXi chargingStationMap;
+        Eigen::MatrixXi InfeedMap;
+        Eigen::MatrixXi chuteMap;
 
 
     public:

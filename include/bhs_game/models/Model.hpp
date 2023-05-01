@@ -6,10 +6,7 @@
 #include <random>
 #include "bhs_game/Scheduler.hpp"
 #include "bhs_game/World.hpp"
-#include "bhs_game/utils/global_device.h"
-
-#ifndef BHS_VIS_MODEL_H
-#define BHS_VIS_MODEL_H
+#include "bhs_game/utils/Timer.h"
 
 namespace bhs_game {
 
@@ -36,6 +33,8 @@ namespace bhs_game {
 
         virtual void step();
 
+        virtual void step(double delta_time);
+
         int next_id();
 
         void reset_randomizer(int seed = -1);
@@ -52,5 +51,3 @@ namespace bhs_game {
     };
 
 } // bhs_game
-
-#endif //BHS_VIS_MODEL_H

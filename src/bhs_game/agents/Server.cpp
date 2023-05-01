@@ -2,11 +2,12 @@
 // Created by zartris on 4/8/23.
 //
 
-#include <chrono>
+
 #include "bhs_game/agents/Server.hpp"
 
 namespace bhs_game {
     void AServer::step(double dt) {
+        ScopedTimer timer("Server::step");
         printf("Server %i step \n", getUniqueId());
         // Implement the single step logic here
         // 1. Check if there are any requests from agents
@@ -32,8 +33,8 @@ namespace bhs_game {
         // 4. If we can't release the results, do nothing
     }
 
-    std::vector<TensorXDouble> AServer::computePath() {
+    std::vector<glm::dvec2> AServer::computePath() {
         printf("Computing path for agents \n");
-        return std::vector<TensorXDouble>();
+        return std::vector<glm::dvec2>();
     }
 } // bhs_game

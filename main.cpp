@@ -9,7 +9,7 @@ int main() {
     printf("The main function is running \n");
     bhs_game::AirportLogistic model(0, false);
 
-    model.run(2);
+    model.run(10);
 
     printf("The main function is done \n");
     return 0;

@@ -5,22 +5,17 @@
 #include "bhs_game/World.hpp"
 
 namespace bhs_game {
-    ContinuousSpace::ContinuousSpace(TScalarDouble x_max, TScalarDouble y_max, bool torus, TScalarDouble x_min,
-                                     TScalarDouble y_min) :
+    ContinuousSpace::ContinuousSpace(double x_max, double y_max, bool torus, double x_min,
+                                     double y_min) :
             x_min(x_min), x_max(x_max), width(x_max - x_min), y_min(y_min), y_max(y_max), height(y_max - y_min),
-            torus(torus) {
-        center = torch::stack({(x_max + x_min) / 2, (y_max + y_min) / 2});
-        size = torch::stack({width, height});
+            torus(torus), center(glm::dvec2((x_max + x_min) / 2, (y_max + y_min) / 2)),
+            size(glm::dvec2(width, height)) {
     }
 
-    void ContinuousSpace::placeAgent(Agent *agent, Tensor3Double pos) {
-        if (pos.sizes().size() == 1) {
-            // We need it to be {3,1}
-            pos = pos.unsqueeze(1);
-        }
+    void ContinuousSpace::placeAgent(Agent *agent, glm::dvec3 pos) {
         invalidate_agent_cache();
         agent_to_index[agent] = -1; // Might set it to 0, which is not what we want.
-        Tensor3Double adjusted_pos = torus_adj(pos);
+        glm::dvec3 adjusted_pos = torus_adj(pos);
         agent->setState(adjusted_pos);
         // TODO:: Maybe make an agent pos matrix for vectorized operations
         if (agent->isStatic) {
@@ -33,8 +28,8 @@ namespace bhs_game {
         }
     }
 
-    void ContinuousSpace::moveAgent(Agent *agent, Tensor3Double &pos) {
-        Tensor3Double adjusted_pos = torus_adj(pos);
+    void ContinuousSpace::moveAgent(Agent *agent, glm::dvec3 &pos) {
+        glm::dvec3 adjusted_pos = torus_adj(pos);
         agent->setState(adjusted_pos);
 
         if (!agent_points.empty()) {
@@ -80,24 +75,19 @@ namespace bhs_game {
      * @param pos
      * @return The adjusted position.
      */
-    Tensor3Double ContinuousSpace::torus_adj(TensorXDouble &pos) {
+    glm::dvec3 ContinuousSpace::torus_adj(glm::dvec3 &pos) {
         if (!out_of_bounds(pos))
             return pos;
         else if (!torus) {
             throw std::runtime_error("Point out of bounds, and space non-toroidal.");
         }
-
-        pos.index_put_({0}, x_min + torch::fmod(pos[0] - x_min, width));
-        pos.index_put_({1}, y_min + torch::fmod(pos[1] - y_min, height));
-
+        pos[0] = x_min + std::fmod(pos[0] - x_min, width);
+        pos[1] = y_min + std::fmod(pos[1] - y_min, height);
         return pos;
     }
 
-    bool ContinuousSpace::out_of_bounds(const TensorXDouble &pos) const {
-
-        auto condition = pos.index({0}).lt(x_min).logical_or(pos.index({0}).gt(x_max)).logical_or(
-                pos.index({1}).lt(y_min).logical_or(pos.index({1}).gt(y_max)));
-        return condition.any().item<bool>();
+    bool ContinuousSpace::out_of_bounds(const glm::dvec3 &pos) const {
+        return pos[0] < x_min || pos[0] > x_max || pos[1] < y_min || pos[1] > y_max;
     }
 
     void ContinuousSpace::buildAgentCache() {
@@ -109,65 +99,43 @@ namespace bhs_game {
         }
     }
 
-    std::vector<Agent *> ContinuousSpace::getNeighborhoodFromList(const TensorXDouble &pos, double radius,
+    std::vector<Agent *> ContinuousSpace::getNeighborhoodFromList(const glm::dvec3 &pos, double radius,
                                                                   std::vector<int> &agent_index_search_list,
                                                                   bool include_center) {
-
         if (agent_points.empty()) {
             buildAgentCache();
         }
 
-        TensorXDouble agentsPos = torch::empty({static_cast<int64_t>(agent_index_search_list.size()), 2});
+        std::vector<glm::dvec2> agentsPos(agent_index_search_list.size());
 
         for (size_t i = 0; i < agent_index_search_list.size(); ++i) {
-            // Learning notes to myself:
-            // my_target.select(0, 1).copy_(my_source.slice(1, 0, 10) would be the equivalent of
-            // my_target[1] = my_source[:, :10] in Python (works if the dimensions these sub-tensors are compatible).
-            agentsPos.select(0, i).copy_(index_to_agent[agent_index_search_list[i]]->getPos());
+            agentsPos[i] = index_to_agent[agent_index_search_list[i]]->getPos();
         }
 
-        TensorXDouble deltasX = (agentsPos.index({"...", 0}) - pos.index({0})).abs();
-        TensorXDouble deltasY = (agentsPos.index({"...", 1}) - pos.index({1})).abs();
-
-        if (torus) {
-            deltasX = torch::min(deltasX, size.index({0}) - deltasX);
-            deltasY = torch::min(deltasY, size.index({1}) - deltasY);
+        std::vector<glm::dvec2> deltas(agent_index_search_list.size());
+        for (size_t i = 0; i < agent_index_search_list.size(); ++i) {
+            deltas[i] = agentsPos[i] - pos.xy();
+            if (torus) {
+                deltas[i].x = std::min(deltas[i].x, size.x - deltas[i].x);
+                deltas[i].y = std::min(deltas[i].y, size.y - deltas[i].y);
+            }
         }
 
-        TensorXDouble dists = deltasX.square() + deltasY.square();
-        dists.index({0}).le(radius * radius);
-
-        auto indx_close = std::vector<torch::Tensor>();
-        // This includes one self
-        if (include_center) {
-            indx_close = torch::where(dists.le(radius * radius));
-        } else {
-            // This excludes self
-            indx_close = torch::where(dists.gt(0).logical_and(dists.le(radius * radius)));
+        std::vector<double> dists(agent_index_search_list.size());
+        for (size_t i = 0; i < agent_index_search_list.size(); ++i) {
+            dists[i] = glm::length2(deltas[i]);
         }
 
-        // TODO:: test if it is faster to use a vector of tensors, or a single tensor
-        // Stack the vector of tensors along a new dimension to create a single tensor
-        torch::Tensor indx_close_tensor = torch::stack(indx_close, 0);
+        std::vector<Agent *> neighbors;
+        for (size_t i = 0; i < agent_index_search_list.size(); ++i) {
+            bool is_close = (dists[i] <= radius * radius);
+            bool is_not_center = (dists[i] > 0);
 
-        // Move the entire Tensor to CPU
-        indx_close_tensor = indx_close_tensor.to(torch::kCPU);
-        std::vector < Agent * > neighbors;
-//        for (auto indx: indx_close) {
-//            // TODO:: Be more performant, here we are having a vector with gpu tensor, and then we are converting to cpu one by one
-//            int i = indx.item<int>();
-//            std::cout << "Agent " << i << " is close" << std::endl;
-//            neighbors.push_back(index_to_agent[agent_index_search_list[i]]);
-//        }
-        for (int64_t i = 0; i < indx_close_tensor.size(0); ++i) {
-            int index = indx_close_tensor[i].item<int>();
-            auto agent = index_to_agent[agent_index_search_list[index]];
-            std::cout << "Agent " << agent->getUniqueId() << " is close" << std::endl;
-            neighbors.push_back(agent);
+            if ((include_center && is_close) || (!include_center && is_close && is_not_center)) {
+                neighbors.push_back(index_to_agent[agent_index_search_list[i]]);
+            }
         }
 
         return neighbors;
     }
-
-
 } // bhs_game

@@ -3,6 +3,7 @@
 //
 
 #include "bhs_game/robotics/PIDController.h"
+#include "glm/geometric.hpp"
 #include <cmath>
 
 Tensor2Double bhs_game::PIDController::update(const Tensor3Double &currentState, const Tensor2Double &desiredState) {
@@ -224,4 +225,75 @@ void bhs_game::EPIDController::reset() {
     v_error_prev = Eigen::VectorXd::Zero(N);
     a_error_integral = Eigen::VectorXd::Zero(N);
     a_error_prev = Eigen::VectorXd::Zero(N);
+}
+
+glm::dvec2 bhs_game::GPIDController::update(const glm::dvec3 &currentState,
+                                            const glm::dvec2 &desiredState) {
+    glm::dvec2 desired_position_slice = desiredState;
+    glm::dvec2 current_states_slice(currentState.x, currentState.y);
+
+    glm::dvec2 position_error = desired_position_slice - current_states_slice;
+#ifdef VERBOSE
+    std::cout << "Position error: " << position_error.x << ", " << position_error.y << std::endl;
+#endif
+
+    double distance_error = glm::length(position_error);
+#ifdef VERBOSE
+    std::cout << "Distance error: " << distance_error << std::endl;
+#endif
+
+    v_error_integral += distance_error;
+    double v_error_derivative = distance_error - v_error_prev;
+    double desiredVelocity =
+            vel_pid.kp * distance_error + vel_pid.ki * v_error_integral + vel_pid.kd * v_error_derivative;
+    v_error_prev = distance_error;
+
+    double desired_heading = std::atan2(position_error.y, position_error.x);
+    double current_heading = currentState.z;
+    double angular_error = desired_heading - current_heading;
+
+    angular_error = std::atan2(std::sin(angular_error), std::cos(angular_error));
+#ifdef VERBOSE
+    std::cout << "Angular error: " << angular_error << std::endl;
+#endif
+
+    a_error_integral += angular_error;
+    double a_error_derivative = angular_error - a_error_prev;
+    double desiredAngularVelocity =
+            ang_pid.kp * angular_error + ang_pid.ki * a_error_integral + ang_pid.kd * a_error_derivative;
+    a_error_prev = angular_error;
+
+    return glm::dvec2(desiredVelocity, desiredAngularVelocity);
+}
+
+double bhs_game::GPIDController::getPositionError(glm::dvec3 currentState,
+                                                  glm::dvec2 desiredState) {
+    glm::dvec2 desired_position_slice = desiredState;
+    glm::dvec2 current_states_slice(currentState.x, currentState.y);
+
+    glm::dvec2 position_error = desired_position_slice - current_states_slice;
+
+    return glm::length(position_error);
+}
+
+double bhs_game::GPIDController::getAngleError(glm::dvec3 currentState,
+                                               glm::dvec2 desiredState) {
+    glm::dvec2 desired_position_slice = desiredState;
+    glm::dvec2 current_states_slice(currentState.x, currentState.y);
+
+    glm::dvec2 position_error = desired_position_slice - current_states_slice;
+    double desired_heading = atan2(position_error.y, position_error.x);
+
+    double current_heading = currentState.z;
+    double angular_error = desired_heading - current_heading;
+    angular_error = atan2(sin(angular_error), cos(angular_error));
+
+    return angular_error * angular_error;
+}
+
+void bhs_game::GPIDController::reset() {
+    v_error_integral = 0;
+    v_error_prev = 0;
+    a_error_integral = 0;
+    a_error_prev = 0;
 }
